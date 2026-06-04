@@ -3,31 +3,6 @@
 FUZZY TOPSIS — SELEKSI UMKM LAYAK GO DIGITAL
 Menggunakan Dataset Bersih (UMKM_TKM_Dataset_Bersih.xlsx)
 ==============================================================================
-
-Script ini membaca langsung dari sheet 'Kriteria_Encoded' pada file Excel
-hasil cleaning. TIDAK diperlukan preprocessing tambahan karena semua nilai
-sudah dalam bentuk numerik siap pakai.
-
-7 Kriteria yang digunakan (sesuai paper):
-  C4_Omzet        → Omzet per Bulan (Rp, imputed)           — Benefit
-  C7_BPJS         → BPJS TK (0=0%, 1=50%, 2=100%)           — Benefit
-  C9_Wilayah      → Wilayah Pemasaran (1–5)                  — Benefit
-  C10_Saluran     → Saluran Pemasaran Score (1–4)            — Benefit
-  C12_Sosmed      → Jumlah Platform Sosmed (0–3)             — Benefit
-  C13_Pencatatan  → Pencatatan Keuangan (1–3)                — Benefit
-  C16_Bantuan     → Bentuk Bantuan (0–4)                     — Benefit
-
-Referensi:
-  Chen, C.T. (2000). Fuzzy Sets and Systems, 114(1), 1–9.
-  https://doi.org/10.1016/S0165-0114(97)00377-1
-
-Cara menjalankan:
-  pip install numpy pandas scipy scikit-learn openpyxl
-  python fuzzy_topsis_clean_dataset.py
-
-Output:
-  fuzzy_topsis_results.csv
-==============================================================================
 """
 
 import numpy as np
@@ -81,11 +56,6 @@ BANTUAN_MAP    = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5}
 # =============================================================================
 
 def load_clean_dataset(path: str) -> pd.DataFrame:
-    """
-    Membaca sheet 'Kriteria_Encoded' dari file Excel dataset bersih.
-    Baris pertama adalah deskripsi kolom, data mulai baris kedua.
-    Tidak ada preprocessing yang diperlukan — semua nilai sudah numerik.
-    """
     print("=" * 60)
     print("TAHAP 1 — MEMBACA DATASET BERSIH")
     print("=" * 60)
@@ -136,7 +106,6 @@ def load_clean_dataset(path: str) -> pd.DataFrame:
 # =============================================================================
 
 def show_weights(weights: np.ndarray) -> None:
-    """Menampilkan bobot hasil expert judgement — tidak dihitung ulang di sini."""
     print("=" * 60)
     print("TAHAP 2 — BOBOT KRITERIA (Fuzzy Direct Rating)")
     print("=" * 60)
@@ -166,20 +135,6 @@ def show_weights(weights: np.ndarray) -> None:
 # =============================================================================
 
 def build_fuzzy_matrix(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Konversi 7 kriteria crisp → Triangular Fuzzy Number (TFN).
-
-    Strategi:
-      C4_Omzet    : Kuantil 5-kelas (distribusi sangat right-skewed,
-                    skewness=7.22; equal-interval menempatkan 97.7%
-                    observasi di level 1)
-      C7–C16      : Direct proportional mapping dari skala ordinal
-
-    Returns
-    -------
-    F            : np.ndarray (n, 7, 3)  — fuzzy decision matrix
-    tfn_levels   : np.ndarray (n, 7)     — level TFN per sel
-    """
     print("=" * 60)
     print("TAHAP 3 — KONVERSI TFN (Fuzzy Decision Matrix F)")
     print("=" * 60)
@@ -235,15 +190,7 @@ def normalize_and_weight(
     F: np.ndarray,
     weights: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Normalisasi (Chen, 2000) untuk kriteria benefit:
-      r_ij = (a_ij / c*_j,  b_ij / c*_j,  c_ij / c*_j)
 
-    Karena semua TFN ∈ [0,1] dan max upper = 1.00, maka R = F.
-
-    Pembobotan:
-      V_ij = R_ij ⊗ w_j = (w_j·l, w_j·m, w_j·u)
-    """
     print("=" * 60)
     print("TAHAP 4 — NORMALISASI & WEIGHTED NORMALISED MATRIX (V)")
     print("=" * 60)
@@ -275,11 +222,6 @@ def normalize_and_weight(
 # =============================================================================
 
 def compute_ideal_solutions(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Untuk semua kriteria benefit (Chen, 2000):
-      A*  (FPIS) : ṽ*_j = (w_j, w_j, w_j)
-      A⁻  (FNIS) : ṽ⁻_j = (0,   0,   0  )
-    """
     print("=" * 60)
     print("TAHAP 5 — FPIS (A*) DAN FNIS (A-)")
     print("=" * 60)
@@ -301,9 +243,6 @@ def compute_ideal_solutions(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray
 # =============================================================================
 
 def vertex_distance(a: np.ndarray, b: np.ndarray) -> float:
-    """
-    d(Ã, B̃) = sqrt(1/3 · ((l1-l2)² + (m1-m2)² + (u1-u2)²))
-    """
     return float(np.sqrt(np.sum((a - b) ** 2) / 3.0))
 
 
@@ -353,10 +292,6 @@ def compute_cc_and_rank(
     D_neg: np.ndarray,
     df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    CC_i = D⁻_i / (D*_i + D⁻_i),   CC_i ∈ [0, 1]
-    Ranking descending — nilai CC lebih tinggi = lebih siap digital.
-    """
     print("=" * 60)
     print("TAHAP 7 — CLOSENESS COEFFICIENT (CC) & RANKING")
     print("=" * 60)
@@ -409,10 +344,6 @@ def compute_cc_and_rank(
 # =============================================================================
 
 def kmeans_clustering(results: pd.DataFrame) -> pd.DataFrame:
-    """
-    K-Means k=3 pada nilai CC untuk menentukan tier kesiapan digital.
-    Pemilihan k=3: Elbow inflection + Silhouette + interpretabilitas kebijakan.
-    """
     print("=" * 60)
     print("TAHAP 8 — K-MEANS CLUSTERING (3 Tier Kesiapan Digital)")
     print("=" * 60)
@@ -472,10 +403,6 @@ def kmeans_clustering(results: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def deterministic_validation(results: pd.DataFrame, weights: np.ndarray) -> None:
-    """
-    (a) Sensitivity analysis: perturbasi bobot ±10% — 14 skenario
-    (b) Cross-method: Spearman ρ vs SAW dan Crisp TOPSIS
-    """
     print("=" * 60)
     print("TAHAP 9 — VALIDASI DETERMINISTIK")
     print("=" * 60)
@@ -591,18 +518,6 @@ def bootstrap_sensitivity(
     n_samples: int = 1000,
     seed: int = 42,
 ) -> None:
-    """
-    Bootstrap sensitivity analysis using Dirichlet(α=1) weight sampling.
-
-    Dirichlet(α=1) is the uniform distribution over the weight simplex,
-    meaning all weight configurations summing to 1 are equally likely.
-    This provides unbiased global coverage of the full weight space —
-    the standard choice for neutral global sensitivity testing in MCDM.
-
-    Reference:
-        Mazurek J & Strzałka D (2022). PLOS ONE 17(10):e0268950.
-        Cui H et al. (2023). Information Sciences 647:119439.
-    """
     print("=" * 60)
     print("TAHAP 9b — BOOTSTRAP SENSITIVITY (Dirichlet α=1, n=1,000)")
     print("=" * 60)
@@ -702,15 +617,6 @@ def ablation_study(
     results: pd.DataFrame,
     weights: np.ndarray,
 ) -> None:
-    """
-    Ablation study: compares expert weights against four alternative
-    configurations to quantify the contribution of expert weight calibration.
-
-    C4 (Social Media Platforms) is the focal criterion because:
-      (1) it has the highest expert-derived weight (w=0.1616);
-      (2) it is the only criterion directly measuring active digital presence;
-      (3) social-media adoption can be directly supported through interventions.
-    """
     print("=" * 60)
     print("TAHAP 9c — ABLATION STUDY")
     print("=" * 60)
@@ -809,12 +715,6 @@ def borderline_analysis(
     results: pd.DataFrame,
     weights: np.ndarray,
 ) -> None:
-    """
-    Identifies enterprises near tier boundaries (±0.02 of CC = 0.378 or 0.511)
-    and tracks their tier stability across all 14 perturbation scenarios.
-    Enterprises in borderline zones warrant supplementary expert review before
-    final programme allocation.
-    """
     print("=" * 60)
     print("TAHAP 9d — BORDERLINE ANALYSIS")
     print("=" * 60)
@@ -916,17 +816,6 @@ def borderline_analysis(
 # =============================================================================
 
 def empirical_proxy_validation(results: pd.DataFrame) -> None:
-    """
-    Membuktikan bahwa tier CC selaras dengan karakteristik nyata
-    menggunakan variabel yang TIDAK dimasukkan ke model.
-
-    Variabel proxy (out-of-model, tersedia di dataset bersih):
-      - Laporan keuangan penuh  (C13_Pencatatan == 3)
-      - Marketplace/reseller    (Saluran >= 2)
-      - Jangkauan nasional      (Wilayah >= 4)
-      - Ada bantuan eksternal   (Bantuan > 0)
-      - BPJS 100%               (BPJS == 2)
-    """
     print("=" * 60)
     print("TAHAP 10 — VALIDASI EMPIRIS (Proxy Validation)")
     print("=" * 60)
